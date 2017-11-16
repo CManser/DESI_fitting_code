@@ -201,7 +201,6 @@ def norm_spectra(spectra, add_infinity=True):
 def tmp_func(_T, _g, _rv, _sn, _l, _m):
     from scipy import interpolate
     c = 299792.458 # Speed of light in km/s 
-    print(_T, _g)
     model=interpolating_model_DA(_T,(_g/100),m_type=_m)
     try: norm_model, m_cont_flux=norm_spectra(model)
     except:

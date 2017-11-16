@@ -92,5 +92,7 @@ if plot == True:
 
     ax2.set_ylabel(r'F$_{\lambda}$ [erg cm$^{-2}$ s$^{-1} \AA^{-1}$]',fontsize=12)
     ax2.set_xlabel(r'Wavelength $(\AA)$',fontsize=12)
-    plt.show()
-    plt.close()
+    
+    ax2.set_xlim(3000, 5500)
+    ax2.set_ylim([spectra[:,1].min(), spectra[:,1].max()])
+    plt.savefig('/Users/christophermanser/Storage/PhD_files/DESI/WD_ascii/WD_fits/20171116/' + sys.argv[1][len(basedir):-4] + '.png', dpi = 300, bbox_inches = 'tight')
