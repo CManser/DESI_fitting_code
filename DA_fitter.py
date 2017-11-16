@@ -3,16 +3,19 @@ import sys
 import matplotlib.pyplot as plt
 from scipy import optimize
 import fitting_scripts
-import fitting_scripts
+
 model_c='da2014'
 basedir='/Users/christophermanser/Storage/PhD_files/DESI/WDFitting'
 c = 299792.458 # Speed of light in km/s
 plot = True
+print(sys.argv[1])
 # Loads the input spectrum as sys.argv[1], first input, and normalises
-spectra=np.loadtxt(sys.argv[1],usecols=(0,1,2),unpack=True).transpose()
+spectra = np.loadtxt(sys.argv[1],usecols=(0,1,2),unpack=True).transpose()
 spectra = spectra[np.isnan(spectra[:,1])==False & (spectra[:,0]>3500)]
 spec_w = spectra[:,0]
+spectra[:,2]=spectra[:,1]/20
 spec_n, cont_flux = fitting_scripts.norm_spectra(spectra)
+
 #load lines to fit and crops them
 line_crop = np.loadtxt(basedir+'/line_crop.dat')
 l_crop = line_crop[(line_crop[:,0]>spec_w.min()) & (line_crop[:,1]<spec_w.max())]

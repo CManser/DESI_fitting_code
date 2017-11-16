@@ -14,15 +14,14 @@ def err_func(x,rv,valore,specn,lcrop,models='da2014'):
        specn/lcrop - normalised spectrum / list of cropped lines to fit"""
     tmp = tmp_func(x[0], x[1], rv, specn, lcrop, models)
     if tmp != 1: return abs(tmp[3]-(valore+1.)) #this is quantity that gets minimized 
-    else: pass
-
+    else: return 1E30
 
 def fit_func(x,specn,lcrop,models='da2014',mode=0):
     """Requires: x - initial guess of T, g, and rv
        specn/lcrop - normalised spectrum / list of cropped lines to fit
        mode=0 is for finding bestfit, mode=1 for fitting & retriving specific model """
     tmp = tmp_func(x[0], x[1], x[2], specn, lcrop, models)
-    if tmp == 1: pass
+    if tmp == 1: return 1E30
     elif mode==0: return tmp[3] #this is the quantity that gets minimized
     elif mode==1: return tmp[0], tmp[1], tmp[2]
 
@@ -202,6 +201,7 @@ def norm_spectra(spectra, add_infinity=True):
 def tmp_func(_T, _g, _rv, _sn, _l, _m):
     from scipy import interpolate
     c = 299792.458 # Speed of light in km/s 
+    print(_T, _g)
     model=interpolating_model_DA(_T,(_g/100),m_type=_m)
     try: norm_model, m_cont_flux=norm_spectra(model)
     except:
