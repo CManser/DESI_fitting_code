@@ -7,6 +7,113 @@ def air_to_vac(wavin):
     return wavin/(1.0 + 2.735182e-4 + 131.4182/wavin**2 + 2.76249e8/wavin**4)
 
 
+def fit_DA(inp, model_c = 'da2014', plot = True):
+    import matplotlib.pyplot as plt
+    from scipy import optimize
+    c = 299792.458 # Speed of light in km/s
+    # Loads the input spectrum as inp (read in spectrum), first input, and normalises
+    spectra = np.loadtxt(inp,usecols=(0,1,2),unpack=True).transpose()
+    spectra = spectra[np.isnan(spectra[:,1])==False & (spectra[:,0]>3500)]
+    spec_w = spectra[:,0]
+    spectra[:,2]=spectra[:,2]**-0.5
+    spec_n, cont_flux = norm_spectra(spectra)
+    #load lines to fit and crops them
+    line_crop = np.loadtxt(basedir+'/line_crop.dat')
+    l_crop = line_crop[(line_crop[:,0]>spec_w.min()) & (line_crop[:,1]<spec_w.max())]
+    #fit entire grid to find good starting point
+    best=fit_line(spec_n, l_crop,model=model_c)
+    first_T, first_g = best[2][0], best[2][1]
+    all_chi, all_TL  = best[4], best[3]
+
+    #------find starting point for secondary solution
+    if first_T <= 13000.:
+        other_TL, other_chi = all_TL[all_TL[:,0]>=13000.], all_chi[all_TL[:,0]>=13000.]
+        other_sol = other_TL[other_chi==np.min(other_chi)]
+    elif first_T > 13000.:
+        other_TL, other_chi = all_TL[all_TL[:,0]<13000.], all_chi[all_TL[:,0]<13000.]
+        other_sol = other_TL[other_chi==np.min(other_chi)]
+
+    # Find best fitting model and then calculate error
+    new_best= optimize.fmin(fit_func,(first_T,first_g,10.),args=(spec_n,l_crop,
+                            model_c,0),disp=0,xtol=1.,ftol=1.,full_output=1)
+    other_T = optimize.fmin(err_func,(first_T,first_g),args=(new_best[0][2],
+                            new_best[1],spec_n,l_crop,model_c),disp=0,xtol=1.,
+                            ftol=1.,full_output=0)
+    best_T, best_g, best_rv = new_best[0][0], new_best[0][1], new_best[0][2]
+    print("\nFirst solution")
+    print("T = ", best_T, abs(best_T-other_T[0]))
+    print("logg = ", best_g/100, abs(best_g-other_T[1])/100)
+    print("rv =",best_rv)
+    #repeat fit for secondary solution
+    sec_best = optimize.fmin(fit_func,(other_sol[0][0],other_sol[0][1],best_rv),
+                             args=(spec_n,l_crop,model_c,0),disp=0,xtol=1.,ftol=1.,
+                             full_output=1)
+    other_T2 = optimize.fmin(err_func,(other_sol[0][0],other_sol[0][1]),
+                             args=(best_rv,sec_best[1],spec_n,l_crop,model_c),disp=0,
+                             xtol=1.,ftol=1.,full_output=0)
+    s_best_T, s_best_g, s_best_rv = sec_best[0][0], sec_best[0][1], sec_best[0][2]
+    print("\nSecond solution")
+    print("T = ", s_best_T, abs(s_best_T-other_T2[0]))
+    print("logg = ", s_best_g/100, abs(s_best_g-other_T2[1])/100)
+
+
+    StN = np.sum( spectra[:,1][(spec_w >= 4500.0) & (spec_w <= 4750.0)] / spectra[:,2][(spec_w >= 4500.0) & (spec_w <= 4750.0)] ) / spectra[:,1][(spec_w >= 4500.0) & (spec_w <= 4750.0)].size
+    print('StN = %.1f'%(StN))
+    #=======================plotting===============================================
+    if plot == True:
+        # Get and save the 2 best lines from the spec and model, and the full models
+        lines_s,lines_m,mod_n=fit_func((best_T,best_g,best_rv),spec_n,l_crop,
+                                       models=model_c,mode=1)
+        lines_s_o,lines_m_o,mod_n_o=fit_func((s_best_T,s_best_g,s_best_rv),spec_n,
+                                             l_crop,models=model_c,mode=1)
+        fig=plt.figure(figsize=(8,5))
+        ax1 = plt.subplot2grid((1,4), (0, 3))
+        step = 0
+        for i in range(1,6): # plots Halpha (i=0) to H6 (i=5)
+            min_p   = lines_s[i][:,0][lines_s[i][:,1]==np.min(lines_s[i][:,1])][0]
+            min_p_o = lines_s_o[i][:,0][lines_s_o[i][:,1]==np.min(lines_s_o[i][:,1])][0]
+            ax1.plot(lines_s[i][:,0]-min_p,lines_s[i][:,1]+step,color='k')
+            ax1.plot(lines_s[i][:,0]-min_p,lines_m[i]+step,color='r')
+            ax1.plot(lines_s_o[i][:,0]-min_p_o,lines_m_o[i]+step,color='g')
+            step+=0.5
+        xticks = ax1.xaxis.get_major_ticks()
+        ax1.set_xticklabels([])
+        ax1.set_yticklabels([])
+
+        ax2 = plt.subplot2grid((1,4), (0, 0),colspan=3)
+        ax2.plot(spec_w,spectra[:,1],color='k')
+        # Adjust the flux of models to match the spectrum
+        mod_n[np.isnan(mod_n)], mod_n_o[np.isnan(mod_n_o)] = 0.0, 0.0
+        check_f_spec=spectra[:,1][(spec_w>4500.) & (spec_w<4700.)]
+        check_f_model=mod_n[:,1][(mod_n[:,0]>4500.) & (mod_n[:,0]<4700.)]
+        adjust=np.average(check_f_model)/np.average(check_f_spec)
+        ax2.plot(mod_n[:,0]*(best_rv+c)/c,mod_n[:,1]/adjust,color='r')
+        check_f_model_o=mod_n_o[:,1][(mod_n_o[:,0]>4500.) & (mod_n_o[:,0]<4700.)]
+        adjust_o=np.average(check_f_model_o)/np.average(check_f_spec)
+        ax2.plot(mod_n_o[:,0]*(best_rv+c)/c,mod_n_o[:,1]/adjust_o,color='g', ls = '--')
+
+        ax2.set_ylabel(r'F$_{\lambda}$',fontsize=12)
+        ax2.set_xlabel(r'Wavelength $(\AA)$',fontsize=12)
+    
+        ax2.set_xlim(3500, 6000)
+        ax2.set_ylim([spectra[:,1].min(), spectra[:,1].max()])
+    
+        ax2.text(4500, spectra[:,1].min() + 0.96*( spectra[:,1].max() - spectra[:,1].min()), 'StN = %.1f'%(StN), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8)
+        name, T_desi, g_desi, wd_type, mag_desi = np.genfromtxt('/Users/christophermanser/Storage/PhD_files/DESI/2percent/desi_wd_info.dat', unpack = True)
+        tmp = int(inp.split('/')[-1].split('_')[0])
+        mag = mag_desi[np.where(tmp == name)]
+        ax2.text(  5200, spectra[:,1].min() + 0.96*( spectra[:,1].max() - spectra[:,1].min()), 'Mag = %.2f'%(mag), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8)
+        ax2.text(  4500, spectra[:,1].min() + 0.92*( spectra[:,1].max() - spectra[:,1].min()), 'T = %d +/- %d'%(best_T, abs(best_T-other_T[0])), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8)
+        ax2.text(  5250, spectra[:,1].min() + 0.92*( spectra[:,1].max() - spectra[:,1].min()), 'logg = %.2f +/- %.2f'%(best_g/100, abs(best_g-other_T[1])/100), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8)
+        ax2.text(  4500, spectra[:,1].min() + 0.88*( spectra[:,1].max() - spectra[:,1].min()), 'T2 = %d +/- %d'%(s_best_T, abs(s_best_T-other_T2[0])), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8)
+        ax2.text(  5250, spectra[:,1].min() + 0.88*( spectra[:,1].max() - spectra[:,1].min()), 'logg2 = %.2f +/- %.2f'%(s_best_g/100, abs(s_best_g-other_T2[1])/100), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8) 
+        ax2.text(  4500, spectra[:,1].min() + 0.84*( spectra[:,1].max() - spectra[:,1].min()), 'T DESI = %d'%(T_desi[np.where(tmp == name)]), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8)
+        ax2.text(  5250, spectra[:,1].min() + 0.84*( spectra[:,1].max() - spectra[:,1].min()), 'logg DESI = %.2f'%(g_desi[np.where(tmp == name)]), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8)    
+        plt.savefig('/Users/christophermanser/Storage/PhD_files/DESI/WD_ascii/WD_fits/20171117/' + inp[len(basedir):-4] + '-' + model_c + '.png', dpi = 300, bbox_inches = 'tight')
+        plt.close()
+    return best_T, best_g
+
+
 def err_func(x,rv,valore,specn,lcrop,models='da2014'):
     """Script finds errors by minimising function at chi+1 rather than chi
        Requires: x; rv - initial guess of T, g; rv
@@ -15,6 +122,7 @@ def err_func(x,rv,valore,specn,lcrop,models='da2014'):
     tmp = tmp_func(x[0], x[1], rv, specn, lcrop, models)
     if tmp != 1: return abs(tmp[3]-(valore+1.)) #this is quantity that gets minimized 
     else: return 1E30
+
 
 def fit_func(x,specn,lcrop,models='da2014',mode=0):
     """Requires: x - initial guess of T, g, and rv
@@ -222,3 +330,58 @@ def tmp_func(_T, _g, _rv, _sn, _l, _m):
             sum_l_chi2 += np.sum(((l_s[:,1]-l_m)/l_s[:,2])**2)
             lines_m.append(l_m), lines_s.append(l_s)
         return lines_s, lines_m, model, sum_l_chi2
+
+
+def flux_calib(inp,typ = 0, knot_num = 50, itera = 3, plot = 'no'):
+    from scipy.interpolate import splev, splrep, spline, interp1d
+    """ Takes in the path to the spectrum. Type of calibration is whether 
+    you use the continuum of the spectrum or the full range with the Balmer 
+    lines taken out. knot_num determines the number of knots used in the 
+    spline fitting of the response curve. Will iterate over the number of iterations.
+    
+    Returns the response function calculated, as well as the best fitting model
+    with the temperature and logg"""
+    spectra = np.loadtxt(inp,usecols=(0,1,2),unpack=True).transpose()
+    spectra = spectra[np.isnan(spectra[:,1])==False & (spectra[:,0]>3500)]
+    spec_w = spectra[:,0]
+    spectra[:,2]=spectra[:,2]**-0.5
+    rcf = np.ones(spectra[:,0].size) # final response curve
+    for i in range(itera):
+        temp, logg = fit_DA(inp, model_c = 'da2014', plot = True)
+        model = interpolating_model_DA(temp,logg/100,m_type='da2014')
+        m1, m2 = model[:,0], model[:,1]
+        best_model = np.stack((m1,m2,np.ones(m1.size)), axis=-1)
+        tmp_wav, err_tmp = spectra[:,0][:], spectra[:,2][:]
+        # Takes the model, or just the continuum and divides this out of the spectra
+        # to determine the resposne curve.
+        if typ == 1: # Continuum fitting 
+            spectra_ret, cont_flux = norm_spectra(best_model)
+            c_flux = interp1d(m1,cont_flux[:,0],kind='linear')(spectra[:,0])
+            response_curve = spectra[:,1]/c_flux 
+            r_tmp, err_tmp = response_curve[:], spectra[:,2][:]
+            line_crop = np.loadtxt(file_path + 'line_crop.dat')
+            for i in range(line_crop[:,0].size):
+              cut = (tmp_wav <= line_crop[i][0]) | (tmp_wav >= line_crop[i][1])
+              r_tmp   =   r_tmp[cut]
+              err_tmp = err_tmp[cut]
+              tmp_wav = tmp_wav[cut]
+        elif typ == 0: # Full model, Continuum + balmer lines
+            func = interp1d(m1,m2,kind='linear')
+            model_flux = func(spectra[:,0])
+            response_curve = spectra[:,1]/model_flux
+            r_tmp = response_curve[:]
+        # Spline fit the response curve to get a smooth function.
+        tmp = (max(tmp_wav) - min(tmp_wav))/knot_num
+        knots = np.linspace(min(tmp_wav)+tmp, max(tmp_wav)-tmp, knot_num)
+        tck = splrep(tmp_wav, response_curve, w = 1/err_tmp, t=knots, k = 3)
+        p = splev(spectra[:,0], tck)
+        spectra[:,1], spectra[:,2] = spectra[:,1]/p, spectra[:,2]/p
+        if plot == 'yes':
+          plt.plot(tmp_wav, r_tmp, color = 'black')
+          plt.plot(spectra[:,0], p, color = 'red', lw = 2)
+          plt.show()
+          plt.close()
+        if i == 0: # Calculate the accurate flux/count ratio on first itr
+            print('Include flux/count calculation')
+        rcf *= p
+    return rcf, [temp, logg, best_model]
