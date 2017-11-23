@@ -1,6 +1,6 @@
 import numpy as np
 basedir='/Users/christophermanser/Storage/PhD_files/DESI/WDFitting'
-
+c = 299792.458 # Speed of light in km/s
 
 def air_to_vac(wavin):
     """Converts spectra from air wavelength to vacuum to compare to models"""
@@ -10,7 +10,6 @@ def air_to_vac(wavin):
 def fit_DA(spectra,inp = 'None', model_c = 'da2014', plot = False):
     import matplotlib.pyplot as plt
     from scipy import optimize
-    c = 299792.458 # Speed of light in km/s
     # Loads the input spectrum as inp (read in spectrum), first input, and normalises
     #load lines to fit and crops them
     spec_w = spectra[:,0]
@@ -109,7 +108,7 @@ def fit_DA(spectra,inp = 'None', model_c = 'da2014', plot = False):
         ax2.text(  5250, spectra[:,1].min() + 0.84*( spectra[:,1].max() - spectra[:,1].min()), 'logg DESI = %.2f'%(g_desi[np.where(tmp == name)]), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8)    
         plt.savefig('/Users/christophermanser/Storage/PhD_files/DESI/WD_ascii/WD_fits/20171117/' + inp[len(basedir):-4] + '-' + model_c + '.png', dpi = 300, bbox_inches = 'tight')
         plt.close()
-    return best_T, best_g
+    return best_T, best_g, best_rv
 
 
 def err_func(x,rv,valore,specn,lcrop,models='da2014'):
@@ -306,7 +305,6 @@ def norm_spectra(spectra, add_infinity=True):
 
 def tmp_func(_T, _g, _rv, _sn, _l, _m):
     from scipy import interpolate
-    c = 299792.458 # Speed of light in km/s 
     model=interpolating_model_DA(_T,(_g/100),m_type=_m)
     try: norm_model, m_cont_flux=norm_spectra(model)
     except:
@@ -330,9 +328,7 @@ def tmp_func(_T, _g, _rv, _sn, _l, _m):
         return lines_s, lines_m, model, sum_l_chi2
 
 
-def flux_calib(spec, inp,typ = 0, knot_num = 20, itera = 3, plot = True):
-    from scipy.interpolate import splev, splrep, spline, interp1d
-    import matplotlib.pyplot as plt
+def flux_calib(spec, inp,typ = 0, knot_num = 8, itera = 3, plot = False):
     """ Takes in spectrum and path to the spectrum. Type of calibration is whether 
     you use the continuum of the spectrum or the full range with the Balmer 
     lines taken out. knot_num determines the number of knots used in the 
@@ -340,44 +336,42 @@ def flux_calib(spec, inp,typ = 0, knot_num = 20, itera = 3, plot = True):
     
     Returns the response function calculated, as well as the best fitting model
     with the temperature and logg"""
-    spectra = spec
-    rcf = np.ones(spectra[:,0].size) # final response curve
+    from scipy.interpolate import splev, splrep, spline, interp1d
+    import matplotlib.pyplot as plt
+  
+    rcf = np.ones(spec[:,0].size) # final response curve
     for i in range(itera):
-        print("CURRENTLY DOES NOT ITERATE, FITTER TAKES IN T AND G NOT A SPECTRUM.")
-        temp, logg = fit_DA(spectra, inp, model_c = 'da2014', plot = True)
+        temp, logg, rv = fit_DA(spec, inp, model_c = 'da2014', plot = False)
         model = interpolating_model_DA(temp,logg/100,m_type='da2014')
-        m1, m2 = model[:,0], model[:,1]
+        m1, m2 = model[:,0]*(rv+c)/c, model[:,1]
+        tmp_wav, err_tmp = spec[:,0][:], spec[:,2][:]
         best_model = np.stack((m1,m2,np.ones(m1.size)), axis=-1)
-        tmp_wav, err_tmp = spectra[:,0][:], spectra[:,2][:]
-        # Takes the model, or just the continuum and divides this out of the spectra
+        # Takes the model or continuum and divides this out of the spec
         # to determine the resposne curve.
         if typ == 1: # Continuum fitting 
-            spectra_ret, cont_flux = norm_spectra(best_model)
-            c_flux = interp1d(m1,cont_flux[:,0],kind='linear')(spectra[:,0])
-            response_curve = spectra[:,1]/c_flux 
-            r_tmp, err_tmp = response_curve[:], spectra[:,2][:]
+            spec_ret, cont_flux = norm_spectra(best_model)
+            c_flux = interp1d(m1,cont_flux[:,0],kind='linear')(spec[:,0])
+            response_curve = spec[:,1]/c_flux 
+            r_tmp, err_tmp = response_curve[:], spec[:,2][:]
             line_crop = np.loadtxt(basedir + '/line_crop.dat')
             for i in range(line_crop[:,0].size):
               cut = (tmp_wav <= line_crop[i][0]) | (tmp_wav >= line_crop[i][1])
-              r_tmp   =   r_tmp[cut]
-              err_tmp = err_tmp[cut]
-              tmp_wav = tmp_wav[cut]
+              r_tmp, err_tmp, tmp_wav = r_tmp[cut], err_tmp[cut], tmp_wav[cut]
         elif typ == 0: # Full model, Continuum + balmer lines
-            func = interp1d(m1,m2,kind='linear')
-            model_flux = func(spectra[:,0])
-            response_curve = spectra[:,1]/model_flux
+            model_flux = interp1d(m1,m2,kind='linear')(spec[:,0])
+            response_curve = spec[:,1]/model_flux
             r_tmp = response_curve[:]
         # Spline fit the response curve to get a smooth function.
         tmp = (max(tmp_wav) - min(tmp_wav))/knot_num
         knots = np.linspace(min(tmp_wav)+tmp, max(tmp_wav)-tmp, knot_num)
-        tck = splrep(tmp_wav, response_curve, w = 1/err_tmp, t=knots, k = 3)
-        p = splev(spectra[:,0], tck)
+        tck = splrep(tmp_wav, r_tmp, w = 1/err_tmp, t=knots, k = 3)
+        p = splev(spec[:,0], tck)
         p /= np.mean(p)
         r_tmp /= np.mean(r_tmp)
-        spectra[:,1], spectra[:,2] = spectra[:,1]/p, spectra[:,2]/p
+        spec[:,1], spec[:,2] = spec[:,1]/p, spec[:,2]/p
         if plot == True:
           plt.plot(tmp_wav, r_tmp, color = 'black')
-          plt.plot(spectra[:,0], p, color = 'red', lw = 2)
+          plt.plot(spec[:,0], p, color = 'red', lw = 2)
           plt.show()
           plt.close()
         if i == 0: # Calculate the accurate flux/count ratio on first itr
