@@ -328,15 +328,13 @@ def tmp_func(_T, _g, _rv, _sn, _l, _m):
         return lines_s, lines_m, model, sum_l_chi2
 
 
-def flux_calib(spec, inp,typ = 0, knot_num = 8, itera = 3, plot = False):
-    """ Takes in spectrum and path to the spectrum. Type of calibration is whether 
-    you use the continuum of the spectrum or the full range with the Balmer 
-    lines taken out. knot_num determines the number of knots used in the 
-    spline fitting of the response curve. Will iterate over the number of iterations.
+def flux_calib(spec, inp, knot_num = 10, itera = 3, plot = False):
+    """ Takes in spectrum and path to the spectrum. knot_num determines the num
+    of knots used in spline fit of response curve. itera = num of interations.
     
     Returns the response function calculated, as well as the best fitting model
     with the temperature and logg"""
-    from scipy.interpolate import splev, splrep, spline, interp1d
+    from scipy.interpolate import splev, splrep, interp1d
     import matplotlib.pyplot as plt
   
     rcf = np.ones(spec[:,0].size) # final response curve
@@ -344,33 +342,23 @@ def flux_calib(spec, inp,typ = 0, knot_num = 8, itera = 3, plot = False):
         temp, logg, rv = fit_DA(spec, inp, model_c = 'da2014', plot = False)
         model = interpolating_model_DA(temp,logg/100,m_type='da2014')
         m1, m2 = model[:,0]*(rv+c)/c, model[:,1]
-        tmp_wav, err_tmp = spec[:,0][:], spec[:,2][:]
         best_model = np.stack((m1,m2,np.ones(m1.size)), axis=-1)
-        # Takes the model or continuum and divides this out of the spec
-        # to determine the resposne curve.
-        if typ == 1: # Continuum fitting 
-            spec_ret, cont_flux = norm_spectra(best_model)
-            c_flux = interp1d(m1,cont_flux[:,0],kind='linear')(spec[:,0])
-            response_curve = spec[:,1]/c_flux 
-            r_tmp, err_tmp = response_curve[:], spec[:,2][:]
-            line_crop = np.loadtxt(basedir + '/line_crop.dat')
-            for i in range(line_crop[:,0].size):
-              cut = (tmp_wav <= line_crop[i][0]) | (tmp_wav >= line_crop[i][1])
-              r_tmp, err_tmp, tmp_wav = r_tmp[cut], err_tmp[cut], tmp_wav[cut]
-        elif typ == 0: # Full model, Continuum + balmer lines
-            model_flux = interp1d(m1,m2,kind='linear')(spec[:,0])
-            response_curve = spec[:,1]/model_flux
-            r_tmp = response_curve[:]
+        # Takes the model and divides this out of the spec to determine the resp. curve.
+        model_flux = interp1d(m1,m2,kind='linear')(spec[:,0])
+        response_curve = spec[:,1]/model_flux
+        r_tmp = response_curve[:]
         # Spline fit the response curve to get a smooth function.
-        tmp = (max(tmp_wav) - min(tmp_wav))/knot_num
-        knots = np.linspace(min(tmp_wav)+tmp, max(tmp_wav)-tmp, knot_num)
-        tck = splrep(tmp_wav, r_tmp, w = 1/err_tmp, t=knots, k = 3)
+        wav_min, wav_max = min(spec[:,0]), max(spec[:,0])
+        tmp = (wav_max - wav_min)/knot_num
+        knots = np.linspace(wav_min+tmp, wav_max-tmp, knot_num)
+        tck = splrep(spec[:,0], r_tmp, w = 1/spec[:,2], t=knots, k = 3)
         p = splev(spec[:,0], tck)
         p /= np.mean(p)
         r_tmp /= np.mean(r_tmp)
         spec[:,1], spec[:,2] = spec[:,1]/p, spec[:,2]/p
+        # plots the correction
         if plot == True:
-          plt.plot(tmp_wav, r_tmp, color = 'black')
+          plt.plot(spec[:,0], r_tmp, color = 'black')
           plt.plot(spec[:,0], p, color = 'red', lw = 2)
           plt.show()
           plt.close()
