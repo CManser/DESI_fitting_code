@@ -53,9 +53,7 @@ def fit_DA(spectra,inp = 'None', model_c = 'da2014', plot = False):
     print("T = ", s_best_T, abs(s_best_T-other_T2[0]))
     print("logg = ", s_best_g/100, abs(s_best_g-other_T2[1])/100)
 
-    StN = (np.sum(spectra[:,1][(spec_w >= 4500.0) & (spec_w <= 4750.0)] / 
-          spectra[:,2][(spec_w >= 4500.0) & (spec_w <= 4750.0)] ) / 
-          spectra[:,1][(spec_w >= 4500.0) & (spec_w <= 4750.0)].size)
+    StN = np.sum( spectra[:,1][(spec_w >= 4500.0) & (spec_w <= 4750.0)] / spectra[:,2][(spec_w >= 4500.0) & (spec_w <= 4750.0)] ) / spectra[:,1][(spec_w >= 4500.0) & (spec_w <= 4750.0)].size
     print('StN = %.1f'%(StN))
     #=======================plotting===============================================
     if plot == True:
@@ -329,47 +327,79 @@ def tmp_func(_T, _g, _rv, _sn, _l, _m):
         return lines_s, lines_m, model, sum_l_chi2
 
 
-def make_resp_func(spectrum, model_w, model_f, knot_num):
-    """ Produces the response function for a spectrum given the best fitting model
-    and the number of knots to use in the spline fitting"""
-    from scipy.interpolate import splev, splrep, interp1d
-    # Takes the model and divides this out of the spec to determine the resp. curve.
-    model_flux = interp1d(model_w,model_f,kind='linear')(spectrum[:,0])
-    response_curve = spectrum[:,1]/model_flux
-    r_tmp = response_curve[:]
-    wav_min, wav_max = min(spectrum[:,0]), max(spectrum[:,0])
-    # Spline fit the response curve to get a smooth function.
-    tmp = (wav_max - wav_min)/knot_num
-    knots = np.linspace(wav_min+tmp, wav_max-tmp, knot_num)
-    tck = splrep(spectrum[:,0], r_tmp, w = 1/spectrum[:,2], t=knots, k = 3)
-    p = splev(spectrum[:,0], tck)
-    p /= np.mean(p)
-    r_tmp /= np.mean(r_tmp)
-    # Calculate the accurate flux/count ratio
-    print('ARM: Include flux/count calculation')
-    return [p, r_tmp]
-
-
 def flux_calib(spec, inp, knot_num = 40):
     """ Takes in spectrum and path to the spectrum. knot_num determines the num
     of knots used in spline fit of response curve. itera = num of interations.
     
     Returns the response function calculated, as well as the best fitting model
     with the temperature and logg"""
+    from scipy.interpolate import splev, splrep, interp1d
+    import matplotlib.pyplot as plt
     # BLUE
     temp, logg, rv = fit_DA(spec, inp, model_c = 'da2014', plot = False)
     model = interpolating_model_DA(temp,logg/100,m_type='da2014')
     m1, m2 = model[:,0]*(rv+c)/c, model[:,1]
     best_model = np.stack((m1,m2,np.ones(m1.size)), axis=-1)
-    rcf_b = make_resp_func(spec, m1, m2, knot_num)
+    
+    
+    # Takes the model and divides this out of the spec to determine the resp. curve.
+    model_flux = interp1d(m1,m2,kind='linear')(spec[:,0])
+    response_curve = spec[:,1]/model_flux
+    r_tmp_b = response_curve[:]
+    wav_min, wav_max = min(spec[:,0]), max(spec[:,0])
+    # Spline fit the response curve to get a smooth function.
+    tmp = (wav_max - wav_min)/knot_num
+    knots = np.linspace(wav_min+tmp, wav_max-tmp, knot_num)
+    tck = splrep(spec[:,0], r_tmp_b, w = 1/spec[:,2], t=knots, k = 3)
+    p = splev(spec[:,0], tck)
+    p /= np.mean(p)
+    r_tmp_b /= np.mean(r_tmp_b)
+    # Calculate the accurate flux/count ratio
+    print('BLUE ARM: Include flux/count calculation')
+    rcf_b = p
+    
     #RED
     inp_r = inp[:-20] + 'r' + inp[-19:]
     s_r = np.loadtxt(inp_r,usecols=(0,1,2),unpack=True).transpose()
     s_r = s_r[np.isnan(s_r[:,1])==False & (s_r[:,0]>3500)]
-    rcf_r = make_resp_func(s_r, m1, m2, knot_num)
+    s_r1, s_r2, s_r3 = s_r[:,0].copy(), s_r[:,1].copy(), s_r[:,2].copy()
+    
+    model_flux_r = interp1d(m1,m2,kind='linear')(s_r1)
+    response_curve = s_r2/model_flux_r
+    r_tmp_r = response_curve[:]
+    wav_min, wav_max = min(s_r1), max(s_r1)
+    # Spline fit the response curve to get a smooth function.
+    tmp = (wav_max - wav_min)/knot_num
+    knots = np.linspace(wav_min+tmp, wav_max-tmp, knot_num)
+    tck = splrep(s_r1, r_tmp_r, w = 1/s_r3, t=knots, k = 3)
+    p = splev(s_r1, tck)
+    p /= np.mean(p)
+    r_tmp_r /= np.mean(r_tmp_r)
+    # Calculate the accurate flux/count ratio
+    print('RED ARM: Include flux/count calculation')
+    rcf_r = p
+    
     #ZED
     inp_z = inp[:-20] + 'z' + inp[-19:]
     s_z = np.loadtxt(inp_z,usecols=(0,1,2),unpack=True).transpose()
     s_z = s_z[np.isnan(s_z[:,1])==False & (s_z[:,0]>3500)]
-    rcf_z = make_resp_func(s_z, m1, m2, knot_num)    
-    return rcf_b, rcf_r, rcf_z, [temp, logg, best_model]
+    s_z1, s_z2, s_z3 = s_z[:,0].copy(), s_z[:,1].copy(), s_z[:,2].copy()
+    
+    model_flux_z = interp1d(m1,m2,kind='linear')(s_z1)
+    
+    response_curve = s_z2/model_flux_z
+    r_tmp_z = response_curve[:]
+    wav_min, wav_max = min(s_z1), max(s_z1)
+    # Spline fit the response curve to get a smooth function.
+    tmp = (wav_max - wav_min)/knot_num
+    knots = np.linspace(wav_min+tmp, wav_max-tmp, knot_num)
+    tck = splrep(s_z1, r_tmp_z, w = 1/s_z3, t=knots, k = 3)
+    p = splev(s_z1, tck)
+    p /= np.mean(p)
+    r_tmp_z /= np.mean(r_tmp_z)
+    # Calculate the accurate flux/count ratio on first itr
+    print('ZED ARM: Include flux/count calculation')
+    rcf_z = p
+    
+    
+    return [rcf_b, r_tmp_b], [rcf_r, r_tmp_r], [rcf_z, r_tmp_z], [temp, logg, best_model]

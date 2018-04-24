@@ -5,4 +5,4 @@ print('\n' + sys.argv[1])
 
 spectra = np.loadtxt(sys.argv[1],usecols=(0,1,2),unpack=True).transpose()
 spectra = spectra[np.isnan(spectra[:,1])==False & (spectra[:,0]>3500)]
-fitting_scripts.fit_DA(spectra)#,sys.argv[1])
+fitting_scripts.fit_DA(spectra, plot = True)#,sys.argv[1])
