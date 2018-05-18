@@ -335,10 +335,9 @@ def make_resp_func(spectrum, model_w, model_f, knot_num):
     from scipy.interpolate import splev, splrep, interp1d
     # Takes the model and divides this out of the spec to determine the resp. curve.
     model_flux = interp1d(model_w,model_f,kind='linear')(spectrum[:,0])
-    response_curve = spectrum[:,1]/model_flux
-    r_tmp = response_curve[:]
-    wav_min, wav_max = min(spectrum[:,0]), max(spectrum[:,0])
+    r_tmp = spectrum[:,1]/model_flux
     # Spline fit the response curve to get a smooth function.
+    wav_min, wav_max = min(spectrum[:,0]), max(spectrum[:,0])
     tmp = (wav_max - wav_min)/knot_num
     knots = np.linspace(wav_min+tmp, wav_max-tmp, knot_num)
     tck = splrep(spectrum[:,0], r_tmp, w = 1/spectrum[:,2], t=knots, k = 3)
@@ -353,7 +352,7 @@ def make_resp_func(spectrum, model_w, model_f, knot_num):
 def flux_calib(spec, inp, knot_num = 40):
     """ Takes in spectrum and path to the spectrum. knot_num determines the num
     of knots used in spline fit of response curve. itera = num of interations.
-    
+  
     Returns the response function calculated, as well as the best fitting model
     with the temperature and logg"""
     # BLUE
@@ -365,11 +364,11 @@ def flux_calib(spec, inp, knot_num = 40):
     #RED
     inp_r = inp[:-20] + 'r' + inp[-19:]
     s_r = np.loadtxt(inp_r,usecols=(0,1,2),unpack=True).transpose()
-    s_r = s_r[np.isnan(s_r[:,1])==False & (s_r[:,0]>3500)]
+    s_r = s_r[np.isnan(s_r[:,1])==False]
     rcf_r = make_resp_func(s_r, m1, m2, knot_num)
     #ZED
     inp_z = inp[:-20] + 'z' + inp[-19:]
     s_z = np.loadtxt(inp_z,usecols=(0,1,2),unpack=True).transpose()
-    s_z = s_z[np.isnan(s_z[:,1])==False & (s_z[:,0]>3500)]
+    s_z = s_z[np.isnan(s_z[:,1])==False]
     rcf_z = make_resp_func(s_z, m1, m2, knot_num)    
     return rcf_b, rcf_r, rcf_z, [temp, logg, best_model]
