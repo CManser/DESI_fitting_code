@@ -98,16 +98,17 @@ def fit_DA(spectra,inp = 'None', model_c = 'da2014', plot = False):
     
         ax2.text(4500, spectra[:,1].min() + 0.96*( spectra[:,1].max() - spectra[:,1].min()), 'StN = %.1f'%(StN), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8)
         name, T_desi, g_desi, wd_type, mag_desi = np.genfromtxt('/Users/christophermanser/Storage/PhD_files/DESI/2percent/desi_wd_info.dat', unpack = True)
-        tmp = int(inp.split('/')[-1].split('_')[0])
-        mag = mag_desi[np.where(tmp == name)]
-        ax2.text(  5200, spectra[:,1].min() + 0.96*( spectra[:,1].max() - spectra[:,1].min()), 'Mag = %.2f'%(mag), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8)
+        #tmp = int(inp.split('/')[-1].split('_')[0])
+        #mag = mag_desi[np.where(tmp == name)]
+        #ax2.text(  5200, spectra[:,1].min() + 0.96*( spectra[:,1].max() - spectra[:,1].min()), 'Mag = %.2f'%(mag), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8)
         ax2.text(  4500, spectra[:,1].min() + 0.92*( spectra[:,1].max() - spectra[:,1].min()), 'T = %d +/- %d'%(best_T, abs(best_T-other_T[0])), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8)
         ax2.text(  5250, spectra[:,1].min() + 0.92*( spectra[:,1].max() - spectra[:,1].min()), 'logg = %.2f +/- %.2f'%(best_g/100, abs(best_g-other_T[1])/100), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8)
         ax2.text(  4500, spectra[:,1].min() + 0.88*( spectra[:,1].max() - spectra[:,1].min()), 'T2 = %d +/- %d'%(s_best_T, abs(s_best_T-other_T2[0])), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8)
         ax2.text(  5250, spectra[:,1].min() + 0.88*( spectra[:,1].max() - spectra[:,1].min()), 'logg2 = %.2f +/- %.2f'%(s_best_g/100, abs(s_best_g-other_T2[1])/100), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8) 
-        ax2.text(  4500, spectra[:,1].min() + 0.84*( spectra[:,1].max() - spectra[:,1].min()), 'T DESI = %d'%(T_desi[np.where(tmp == name)]), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8)
-        ax2.text(  5250, spectra[:,1].min() + 0.84*( spectra[:,1].max() - spectra[:,1].min()), 'logg DESI = %.2f'%(g_desi[np.where(tmp == name)]), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8)    
+        #ax2.text(  4500, spectra[:,1].min() + 0.84*( spectra[:,1].max() - spectra[:,1].min()), 'T DESI = %d'%(T_desi[np.where(tmp == name)]), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8)
+        #ax2.text(  5250, spectra[:,1].min() + 0.84*( spectra[:,1].max() - spectra[:,1].min()), 'logg DESI = %.2f'%(g_desi[np.where(tmp == name)]), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8)    
         plt.savefig('/Users/christophermanser/Storage/PhD_files/DESI/WD_ascii/WD_fits/20171117/' + inp[len(basedir):-4] + '-' + model_c + '.png', dpi = 300, bbox_inches = 'tight')
+        plt.show()
         plt.close()
     return best_T, best_g, best_rv
 
