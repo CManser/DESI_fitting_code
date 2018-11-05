@@ -44,6 +44,7 @@ spec1, spec2, spec3 = spectra[:,0].copy(), spectra[:,1].copy(), spectra[:,2].cop
 
 # Running the Flux calibration
 resp_b, resp_r, resp_z, model = fitting_scripts.flux_calib(spectra, sys.argv[1])
+s2_c, s3_c = spec2/resp_b[0], spec3/resp_b[0]
 
 #RED
 inp_r = sys.argv[1][:-20] + 'r' + sys.argv[1][-19:]
@@ -58,9 +59,6 @@ s_z = np.loadtxt(inp_z,usecols=(0,1,2),unpack=True).transpose()
 s_z = s_z[np.isnan(s_z[:,1])==False & (s_z[:,0]>3500)]
 s_z1, s_z2, s_z3 = s_z[:,0].copy(), s_z[:,1].copy(), s_z[:,2].copy()
 sz2_c, sz3_c = s_z2/resp_z[0], s_z3/resp_z[0]
-
-
-
 
 ############
 # Plotting #
@@ -113,7 +111,6 @@ StN = np.sum( (spec2[(spec1 >= 4500.0) & (spec1 <= 4750.0)] / spec3[(spec1 >= 45
 axes2.text(  4500, 0.3, 'StN = %.1f'%(StN), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8)
 
 #######################################
-s2_c, s3_c = spec2/resp_b[0], spec3/resp_b[0]
 axes1.plot(spec1, spec2, color = 'black', lw = 1)
 axes1.plot(spec1, s2_c, color = 'blue', alpha = 0.8, lw = 1)
 f_dm_interp = scipy.interpolate.interp1d(w_dm, f_dm, bounds_error = False)(spec1)
@@ -184,6 +181,32 @@ axes9.set_ylim([0.9, 1.1])
 axes9.axhline(0.95, color = 'black', ls = '--', lw = 2, zorder = 100)
 axes9.axhline(1.05, color = 'black', ls = '--', lw = 2, zorder = 100)
 #######################################
+
+
+
+sav_dir = '/Users/christophermanser/Storage/PhD_files/DESI/flux_calibration_testing/calib_files/'
+
+#Blue Save
+sav_dat = np.transpose(np.vstack((spec1, spec2, spec3, resp_b[1], resp_b[0], s2_c, s3_c, f_dm_interp)))
+specname_b = sys.argv[1][:-4].split('/')[-1][13:]
+sav_name = 'final_' + specname_b + '.dat'
+np.savetxt(sav_dir + sav_name, sav_dat)
+
+#Red Save
+sav_dat = np.transpose(np.vstack((s_r1, s_r2, s_r3, resp_r[1], resp_r[0], sr2_c, sr3_c, f_dm_interp_r)))
+specname_r = specname_b.replace('-b', '-r')
+sav_name = 'final_' + specname_r + '.dat'
+np.savetxt(sav_dir + sav_name, sav_dat)
+
+#Red Save
+sav_dat = np.transpose(np.vstack((s_z1, s_z2, s_z3, resp_z[1], resp_z[0], sz2_c, sz3_c, f_dm_interp_z)))
+specname_z = specname_b.replace('-b', '-z')
+sav_name = 'final_' + specname_z + '.dat'
+np.savetxt(sav_dir + sav_name, sav_dat)
+
+
+
+
 sav_dir = '/Users/christophermanser/Storage/PhD_files/DESI/flux_calibration_testing/flux_calib/'
 #plt.savefig(sav_dir + sys.argv[1][:-4].split('/')[-1] + '.png', dpi = 300, bbox_inches = 'tight')
 plt.show()

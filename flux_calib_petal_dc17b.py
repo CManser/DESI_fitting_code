@@ -5,26 +5,6 @@ from scipy import optimize
 import fitting_scripts
 import scipy.interpolate
 
-
-def spec_bin(w, f, e, bin_width = 40):
-  """Bins a spectrum with a resolution of bin_width"""
-  wav_range   = max(w) - min(w)
-  num_of_bins = int( np.ceil(wav_range / bin_width) )
-  wb   = np.zeros(num_of_bins)
-  fb   = np.zeros(num_of_bins)
-  eb   = np.zeros(num_of_bins)
-  temp = min(w) + (bin_width*0.5)
-  for i in range(num_of_bins):
-    if f[(w >= (temp-bin_width*0.5)) & (w < (temp+bin_width*0.5))].size != 0:
-      flux_range    = f[(w >= (temp-bin_width*0.5)) & (w < (temp+bin_width*0.5))]
-      err_range     = e[(w >= (temp-bin_width*0.5)) & (w < (temp+bin_width*0.5))]
-      wb[i], fb[i]  = temp, np.sum(flux_range*err_range**-2)/np.sum(err_range**-2)
-      eb[i]         = np.sqrt(1/np.sum(err_range**2))
-      eb[i]         = ( np.sqrt( np.sum( (err_range)**2 ) ) ) / err_range.size
-    temp          = temp + bin_width
-  #
-  return wb[((wb != 0) & (fb != 0) & (eb != 0))], fb[((wb != 0) & (fb != 0) & (eb != 0))], eb[((wb != 0) & (fb != 0) & (eb != 0))]
-
 def zordersclfct(y, e, t):
   """Calculates the zeroth order scaling factor for a
      model best fit. y, e and t MUST have the same wavelength
@@ -35,8 +15,6 @@ def zordersclfct(y, e, t):
   scale_factor = Syt/Stt
   return scale_factor
 
-print(sys.argv[1])
-# BLUE
 spectra = np.loadtxt(sys.argv[1],usecols=(0,1,2),unpack=True).transpose()
 spectra = spectra[np.isnan(spectra[:,1])==False & (spectra[:,0]>3500)]
 #spectra[:,2]=spectra[:,2]**-2
@@ -45,28 +23,8 @@ spec1, spec2, spec3 = spectra[:,0].copy(), spectra[:,1].copy(), spectra[:,2].cop
 # Running the Flux calibration
 resp_b, resp_r, resp_z, model = fitting_scripts.flux_calib(spectra, sys.argv[1])
 
-#RED
-inp_r = sys.argv[1][:-20] + 'r' + sys.argv[1][-19:]
-s_r = np.loadtxt(inp_r,usecols=(0,1,2),unpack=True).transpose()
-s_r = s_r[np.isnan(s_r[:,1])==False & (s_r[:,0]>3500)]
-s_r1, s_r2, s_r3 = s_r[:,0].copy(), s_r[:,1].copy(), s_r[:,2].copy()
-sr2_c, sr3_c = s_r2/resp_r[0], s_r3/resp_r[0]
-
-#ZED
-inp_z = sys.argv[1][:-20] + 'z' + sys.argv[1][-19:]
-s_z = np.loadtxt(inp_z,usecols=(0,1,2),unpack=True).transpose()
-s_z = s_z[np.isnan(s_z[:,1])==False & (s_z[:,0]>3500)]
-s_z1, s_z2, s_z3 = s_z[:,0].copy(), s_z[:,1].copy(), s_z[:,2].copy()
-sz2_c, sz3_c = s_z2/resp_z[0], s_z3/resp_z[0]
 
 
-
-
-############
-# Plotting #
-############
-# This is for plotting only, and should not be included
-# in the final script.
 
 
 # Finding the desi info and getting the model
@@ -93,6 +51,7 @@ w_dm, f_dm = dm[:,0], dm[:,1]
 
 w_bm, f_bm, e_bm = model[2][:,0], model[2][:,1], model[2][:,2]
 
+# Plotting
 fig = plt.figure(figsize= (12,8))
 axes1 = fig.add_axes([0.5, 0.69, 0.5 , 0.3])
 axes2 = fig.add_axes([0  , 0.7633, 0.45, 0.2366])
@@ -118,73 +77,76 @@ axes1.plot(spec1, spec2, color = 'black', lw = 1)
 axes1.plot(spec1, s2_c, color = 'blue', alpha = 0.8, lw = 1)
 f_dm_interp = scipy.interpolate.interp1d(w_dm, f_dm, bounds_error = False)(spec1)
 f_dm_interp_scl = f_dm_interp * zordersclfct(s2_c, s3_c, f_dm_interp)
-axes1.plot(spec1, f_dm_interp_scl, color = 'red', lw = 2)
+axes1.plot(spec1, f_dm_interp_scl, color = 'red', lw = 1)
 axes2.plot(spec1, resp_b[1], color = 'black')#/max(r_tmp))
 axes2.plot(spec1, resp_b[0], color = 'red')#/max(resp))
 #axes2.plot(spec1, spec2)
 
 axes3.plot(spec1, s2_c / f_dm_interp_scl)
-tmp = spec_bin(spec1, s2_c/f_dm_interp_scl, s3_c / f_dm_interp_scl)
-axes3.plot(tmp[0], tmp[1])
 axes2.xaxis.set_ticklabels([])
 axes1.set_xlim([3500, 6000])
 axes2.set_xlim([3500, 6000])
 axes3.set_xlim([3500, 6000])
-axes2.set_ylim([-0.1, 2])
-axes3.set_ylim([0.9, 1.1])
-axes3.axhline(0.95, color = 'black', ls = '--', lw = 2, zorder = 100)
-axes3.axhline(1.05, color = 'black', ls = '--', lw = 2, zorder = 100)
+axes3.axhline(0.95, color = '0.5', ls = '--', lw = 0.5)
+axes3.axhline(1.05, color = '0.5', ls = '--', lw = 0.5)
 #######################################
 
 
-#Red plotting
-###############################################
+#RED
+inp_r = sys.argv[1][:-20] + 'r' + sys.argv[1][-19:]
+s_r = np.loadtxt(inp_r,usecols=(0,1,2),unpack=True).transpose()
+s_r = s_r[np.isnan(s_r[:,1])==False & (s_r[:,0]>3500)]
+s_r1, s_r2, s_r3 = s_r[:,0].copy(), s_r[:,1].copy(), s_r[:,2].copy()
+#######################################
+sr2_c, sr3_c = s_r2/resp_r[0], s_r3/resp_r[0]
 axes4.plot(s_r1, s_r2, color = 'black', lw = 1)
 axes4.plot(s_r1, sr2_c, color = 'blue', alpha = 0.8, lw = 1)
 f_dm_interp_r = scipy.interpolate.interp1d(w_dm, f_dm, bounds_error = False)(s_r1)
 f_dm_interp_scl_r = f_dm_interp_r * zordersclfct(sr2_c, sr3_c, f_dm_interp_r)
-axes4.plot(s_r1, f_dm_interp_scl_r, color = 'red', lw = 2)
+axes4.plot(s_r1, f_dm_interp_scl_r, color = 'red', lw = 1)
 axes5.plot(s_r1, resp_r[1], color = 'black')#/max(r_tmp))
 axes5.plot(s_r1, resp_r[0], color = 'red')#/max(resp))
 #axes2.plot(spec1, spec2)
 
 axes6.plot(s_r1, sr2_c / f_dm_interp_scl_r)
-tmp = spec_bin(s_r1, sr2_c/f_dm_interp_scl_r, sr3_c / f_dm_interp_scl_r)
-axes6.plot(tmp[0], tmp[1])
 axes5.xaxis.set_ticklabels([])
 axes5.set_xlim([5600, 7800])
 axes6.set_xlim([5600, 7800])
 axes6.set_xlim([5600, 7800])
-axes5.set_ylim([-0.1, 2])
-axes6.set_ylim([0.9, 1.1])
-axes6.axhline(0.95, color = 'black', ls = '--', lw = 2, zorder = 100)
-axes6.axhline(1.05, color = 'black', ls = '--', lw = 2, zorder = 100)
+axes6.axhline(0.95, color = '0.5', ls = '--', lw = 0.5)
+axes6.axhline(1.05, color = '0.5', ls = '--', lw = 0.5)
 #######################################
 
-# ZED plotting
+#ZED
+inp_z = sys.argv[1][:-20] + 'z' + sys.argv[1][-19:]
+s_z = np.loadtxt(inp_z,usecols=(0,1,2),unpack=True).transpose()
+s_z = s_z[np.isnan(s_z[:,1])==False & (s_z[:,0]>3500)]
+s_z1, s_z2, s_z3 = s_z[:,0].copy(), s_z[:,1].copy(), s_z[:,2].copy()
 #######################################
+sz2_c, sz3_c = s_z2/resp_z[0], s_z3/resp_z[0]
 axes7.plot(s_z1, s_z2, color = 'black', lw = 1)
 axes7.plot(s_z1, sz2_c, color = 'blue', alpha = 0.8, lw = 1)
 f_dm_interp_z = scipy.interpolate.interp1d(w_dm, f_dm, bounds_error = False)(s_z1)
 f_dm_interp_scl_z = f_dm_interp_z * zordersclfct(sz2_c, sz3_c, f_dm_interp_z)
-axes7.plot(s_z1, f_dm_interp_scl_z, color = 'red', lw = 2)
+axes7.plot(s_z1, f_dm_interp_scl_z, color = 'red', lw = 1)
 axes8.plot(s_z1, resp_z[1], color = 'black')#/max(r_tmp))
 axes8.plot(s_z1, resp_z[0], color = 'red')#/max(resp))
 #axes2.plot(spec1, spec2)
 
 axes9.plot(s_z1, sz2_c / f_dm_interp_scl_z)
-tmp = spec_bin(s_z1, sz2_c/f_dm_interp_scl_z, sz3_c / f_dm_interp_scl_z)
-axes9.plot(tmp[0], tmp[1])
 axes8.xaxis.set_ticklabels([])
 axes7.set_xlim([7400, 9900])
 axes8.set_xlim([7400, 9900])
 axes9.set_xlim([7400, 9900])
-axes8.set_ylim([-0.1, 2])
-axes9.set_ylim([0.9, 1.1])
-axes9.axhline(0.95, color = 'black', ls = '--', lw = 2, zorder = 100)
-axes9.axhline(1.05, color = 'black', ls = '--', lw = 2, zorder = 100)
+axes9.axhline(0.95, color = '0.5', ls = '--', lw = 0.5)
+axes9.axhline(1.05, color = '0.5', ls = '--', lw = 0.5)
 #######################################
+
+
+
+
+
 sav_dir = '/Users/christophermanser/Storage/PhD_files/DESI/flux_calibration_testing/flux_calib/'
-#plt.savefig(sav_dir + sys.argv[1][:-4].split('/')[-1] + '.png', dpi = 300, bbox_inches = 'tight')
-plt.show()
+plt.savefig(sav_dir + sys.argv[1][:-4].split('/')[-1] + '.png', dpi = 300, bbox_inches = 'tight')
+#plt.show()
 plt.close()

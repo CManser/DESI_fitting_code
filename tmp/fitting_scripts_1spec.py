@@ -106,7 +106,7 @@ def fit_DA(spectra,inp = 'None', model_c = 'da2014', plot = False):
         ax2.text(  5250, spectra[:,1].min() + 0.88*( spectra[:,1].max() - spectra[:,1].min()), 'logg2 = %.2f +/- %.2f'%(s_best_g/100, abs(s_best_g-other_T2[1])/100), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8) 
         #ax2.text(  4500, spectra[:,1].min() + 0.84*( spectra[:,1].max() - spectra[:,1].min()), 'T DESI = %d'%(T_desi[np.where(tmp == name)]), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8)
         #ax2.text(  5250, spectra[:,1].min() + 0.84*( spectra[:,1].max() - spectra[:,1].min()), 'logg DESI = %.2f'%(g_desi[np.where(tmp == name)]), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8)    
-        #plt.savefig('/Users/christophermanser/Storage/PhD_files/DESI/WD_ascii/WD_fits/20171117/' + inp[len(basedir):-4] + '-' + model_c + '.png', dpi = 300, bbox_inches = 'tight')
+        plt.savefig('/Users/christophermanser/Storage/PhD_files/DESI/WD_ascii/WD_fits/20171117/' + inp[len(basedir):-4] + '-' + model_c + '.png', dpi = 300, bbox_inches = 'tight')
         plt.show()
         plt.close()
     return best_T, best_g, best_rv
@@ -341,10 +341,10 @@ def make_resp_func(spectrum, model_w, model_f, knot_num):
     tell_start = [6800, 7580, 8050, 8860, 9280]
     tell_end   = [7000, 7700, 8350, 9150, 9780]
     w, f, e = spectrum[:,0], r_tmp, spectrum[:,2]
-    for i in range(len(tell_start)):
-      e = e[(w <= tell_start[i]) | (w >= tell_end[i])] 
-      f = f[(w <= tell_start[i]) | (w >= tell_end[i])]
-      w = w[(w <= tell_start[i]) | (w >= tell_end[i])]
+    #for i in range(len(tell_start)):
+    #  e = e[(w <= tell_start[i]) | (w >= tell_end[i])] 
+    #  f = f[(w <= tell_start[i]) | (w >= tell_end[i])]
+    #  w = w[(w <= tell_start[i]) | (w >= tell_end[i])]
     
     # Spline fit the response curve to get a smooth function.
     wav_min, wav_max = min(w), max(w)
@@ -361,7 +361,7 @@ def make_resp_func(spectrum, model_w, model_f, knot_num):
     return [p, r_tmp]
 
 
-def flux_calib(spec, inp, knot_num = 40):
+def flux_calib(spec, inp, knot_num = 100):
     """ Takes in spectrum and path to the spectrum. knot_num determines the num
     of knots used in spline fit of response curve. itera = num of interations.
   
@@ -373,14 +373,5 @@ def flux_calib(spec, inp, knot_num = 40):
     m1, m2 = model[:,0]*(rv+c)/c, model[:,1]
     best_model = np.stack((m1,m2,np.ones(m1.size)), axis=-1)
     rcf_b = make_resp_func(spec, m1, m2, knot_num)
-    #RED
-    inp_r = inp[:-20] + 'r' + inp[-19:]
-    s_r = np.loadtxt(inp_r,usecols=(0,1,2),unpack=True).transpose()
-    s_r = s_r[np.isnan(s_r[:,1])==False]
-    rcf_r = make_resp_func(s_r, m1, m2, knot_num)
-    #ZED
-    inp_z = inp[:-20] + 'z' + inp[-19:]
-    s_z = np.loadtxt(inp_z,usecols=(0,1,2),unpack=True).transpose()
-    s_z = s_z[np.isnan(s_z[:,1])==False]
-    rcf_z = make_resp_func(s_z, m1, m2, knot_num)    
-    return rcf_b, rcf_r, rcf_z, [temp, logg, best_model]
+      
+    return rcf_b, [temp, logg, best_model]
