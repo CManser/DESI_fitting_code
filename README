@@ -1,0 +1,25 @@
+The two main flux calibration routines are 
+
+flux_calib_dc17b_noplot.py
+
+and
+
+flux_calib_BOSS_noplot.py
+
+which will output a file for each arm.
+
+dc17b output is:
+
+spec1, spec2, spec3, resp_b[1], resp_b[0], s2_c, s3_c, f_dm_interp
+
+or
+
+w, uf, ue, r, rs, cf, ce, mf
+
+BOSS output is on the CSC is:
+
+spec1, spec2, spec3, resp_b[1], resp_b[0], s2_c, s3_c, BOSS_flux
+
+or 
+
+w, uf, ue, r, rs, cf, ce, bf

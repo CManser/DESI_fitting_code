@@ -1,7 +1,6 @@
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
-from scipy import optimize
 import fitting_scripts
 import scipy.interpolate
 
@@ -34,7 +33,7 @@ def zordersclfct(y, e, t):
   Stt = sum(t*t*invar2)
   scale_factor = Syt/Stt
   return scale_factor
-
+  
 print(sys.argv[1])
 # BLUE
 spectra = np.loadtxt(sys.argv[1],usecols=(0,1,2),unpack=True).transpose()
@@ -44,6 +43,7 @@ spec1, spec2, spec3 = spectra[:,0].copy(), spectra[:,1].copy(), spectra[:,2].cop
 
 # Running the Flux calibration
 resp_b, resp_r, resp_z, model = fitting_scripts.flux_calib(spectra, sys.argv[1])
+s2_c, s3_c = spec2/resp_b[0], spec3/resp_b[0]
 
 #RED
 inp_r = sys.argv[1][:-20] + 'r' + sys.argv[1][-19:]
@@ -65,9 +65,8 @@ sz2_c, sz3_c = s_z2/resp_z[0], s_z3/resp_z[0]
 ############
 # Plotting #
 ############
-# This is for plotting only, and should not be included
+# This is for QA only, and should not be included
 # in the final script.
-
 
 # Finding the desi info and getting the model
 file_name = sys.argv[1].split('/')[-1]
@@ -113,14 +112,13 @@ StN = np.sum( (spec2[(spec1 >= 4500.0) & (spec1 <= 4750.0)] / spec3[(spec1 >= 45
 axes2.text(  4500, 0.3, 'StN = %.1f'%(StN), bbox={'edgecolor':'white', 'facecolor':'white', 'alpha':1, 'pad':2}, fontsize = 8)
 
 #######################################
-s2_c, s3_c = spec2/resp_b[0], spec3/resp_b[0]
 axes1.plot(spec1, spec2, color = 'black', lw = 1)
 axes1.plot(spec1, s2_c, color = 'blue', alpha = 0.8, lw = 1)
 f_dm_interp = scipy.interpolate.interp1d(w_dm, f_dm, bounds_error = False)(spec1)
 f_dm_interp_scl = f_dm_interp * zordersclfct(s2_c, s3_c, f_dm_interp)
 axes1.plot(spec1, f_dm_interp_scl, color = 'red', lw = 2)
-axes2.plot(spec1, resp_b[1], color = 'black')#/max(r_tmp))
-axes2.plot(spec1, resp_b[0], color = 'red')#/max(resp))
+axes2.plot(spec1, resp_b[1], color = 'black')
+axes2.plot(spec1, resp_b[0], color = 'red')
 #axes2.plot(spec1, spec2)
 
 axes3.plot(spec1, s2_c / f_dm_interp_scl)
@@ -144,8 +142,8 @@ axes4.plot(s_r1, sr2_c, color = 'blue', alpha = 0.8, lw = 1)
 f_dm_interp_r = scipy.interpolate.interp1d(w_dm, f_dm, bounds_error = False)(s_r1)
 f_dm_interp_scl_r = f_dm_interp_r * zordersclfct(sr2_c, sr3_c, f_dm_interp_r)
 axes4.plot(s_r1, f_dm_interp_scl_r, color = 'red', lw = 2)
-axes5.plot(s_r1, resp_r[1], color = 'black')#/max(r_tmp))
-axes5.plot(s_r1, resp_r[0], color = 'red')#/max(resp))
+axes5.plot(s_r1, resp_r[1], color = 'black')
+axes5.plot(s_r1, resp_r[0], color = 'red')
 #axes2.plot(spec1, spec2)
 
 axes6.plot(s_r1, sr2_c / f_dm_interp_scl_r)
@@ -168,8 +166,8 @@ axes7.plot(s_z1, sz2_c, color = 'blue', alpha = 0.8, lw = 1)
 f_dm_interp_z = scipy.interpolate.interp1d(w_dm, f_dm, bounds_error = False)(s_z1)
 f_dm_interp_scl_z = f_dm_interp_z * zordersclfct(sz2_c, sz3_c, f_dm_interp_z)
 axes7.plot(s_z1, f_dm_interp_scl_z, color = 'red', lw = 2)
-axes8.plot(s_z1, resp_z[1], color = 'black')#/max(r_tmp))
-axes8.plot(s_z1, resp_z[0], color = 'red')#/max(resp))
+axes8.plot(s_z1, resp_z[1], color = 'black')
+axes8.plot(s_z1, resp_z[0], color = 'red')
 #axes2.plot(spec1, spec2)
 
 axes9.plot(s_z1, sz2_c / f_dm_interp_scl_z)
@@ -184,7 +182,33 @@ axes9.set_ylim([0.9, 1.1])
 axes9.axhline(0.95, color = 'black', ls = '--', lw = 2, zorder = 100)
 axes9.axhline(1.05, color = 'black', ls = '--', lw = 2, zorder = 100)
 #######################################
+
+# Saving these files requires the models determined for the plotting, included
+# together in the plotting section.
+sav_dir = '/Users/christophermanser/Storage/PhD_files/DESI/flux_calibration_testing/calib_files/'
+
+#Blue Save
+sav_dat = np.transpose(np.vstack((spec1, spec2, spec3, resp_b[1], resp_b[0], s2_c, s3_c, f_dm_interp)))
+specname_b = sys.argv[1][:-4].split('/')[-1][13:]
+sav_name = 'final_' + specname_b + '.dat'
+np.savetxt(sav_dir + sav_name, sav_dat)
+
+#Red Save
+sav_dat = np.transpose(np.vstack((s_r1, s_r2, s_r3, resp_r[1], resp_r[0], sr2_c, sr3_c, f_dm_interp_r)))
+specname_r = specname_b.replace('-b', '-r')
+sav_name = 'final_' + specname_r + '.dat'
+np.savetxt(sav_dir + sav_name, sav_dat)
+
+#Red Save
+sav_dat = np.transpose(np.vstack((s_z1, s_z2, s_z3, resp_z[1], resp_z[0], sz2_c, sz3_c, f_dm_interp_z)))
+specname_z = specname_b.replace('-b', '-z')
+sav_name = 'final_' + specname_z + '.dat'
+np.savetxt(sav_dir + sav_name, sav_dat)
+
 sav_dir = '/Users/christophermanser/Storage/PhD_files/DESI/flux_calibration_testing/flux_calib/'
 #plt.savefig(sav_dir + sys.argv[1][:-4].split('/')[-1] + '.png', dpi = 300, bbox_inches = 'tight')
 plt.show()
 plt.close()
+
+
+
